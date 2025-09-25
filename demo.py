@@ -81,15 +81,15 @@ def main():
     
     args = parser.parse_args()
     
-    print("🎯 Natural Language Image Restoration Demo")
+    print("Natural Language Image Restoration Demo")
     print("=" * 50)
     
     # Map prompt to distortion type
-    print(f"📝 Input prompt: '{args.prompt}'")
+    print(f"Input prompt: '{args.prompt}'")
     distortion_type = map_prompt_to_distortion(args.prompt)
     
     if distortion_type is None:
-        print("❌ Could not map prompt to a known distortion type.")
+        print("Could not map prompt to a known distortion type.")
         print("Try prompts like:")
         print("  - 'remove clouds and brighten this aerial photo'")
         print("  - 'remove the haze from this image'") 
@@ -97,7 +97,7 @@ def main():
         print("  - 'brighten this dark image'")
         return 1
     
-    print(f"✅ Mapped to distortion type: {distortion_type}")
+    print(f"Mapped to distortion type: {distortion_type}")
     print()
     
     # Build command for infer.py
@@ -112,7 +112,7 @@ def main():
         "--clip_path", args.clip_path
     ]
     
-    print("🚀 Running inference with command:")
+    print("Running inference with command:")
     print(" ".join(cmd))
     print()
     
@@ -121,10 +121,10 @@ def main():
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(result.stdout)
         
-        print("🎉 Success! Check the output in:", args.save_root)
+        print("Success! Check the output in:", args.save_root)
         
     except subprocess.CalledProcessError as e:
-        print("❌ Error running inference:")
+        print("Error running inference:")
         print(e.stderr)
         return 1
     

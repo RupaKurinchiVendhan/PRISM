@@ -74,7 +74,7 @@ python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f
 Download the pre-trained PRISM model weights: 
 ```bash
 # Create weights directory if it doesn't exist
-mkdir -p weights
+mkdir -p pre-trained
 ```
 Download from here: https://drive.google.com/drive/folders/124vCNRlQuOCnO6SkwZySfMJf-m261-zR?usp=sharing.
 
