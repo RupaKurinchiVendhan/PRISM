@@ -64,7 +64,7 @@ def load_clip_from_pt(pt_path, device='cpu'):
         return clip_vision, clip_processor
         
     except Exception as e:
-        print(f"❌ Error loading model from .pt file: {str(e)}")
+        print(f"Error loading model from .pt file: {str(e)}")
         print("💡 Falling back to HuggingFace format...")
         # Try to find a HuggingFace format fallback
         hf_path = pt_path.replace('.pt', '').replace('_model', '')
@@ -93,7 +93,7 @@ def load_clip_from_hf(hf_path, device='cpu'):
         return clip_vision, clip_processor
         
     except Exception as e:
-        print(f"❌ Error loading model from HuggingFace format: {str(e)}")
+        print(f"Error loading model from HuggingFace format: {str(e)}")
         raise
 
 def get_clip_model_path():
@@ -110,7 +110,6 @@ def get_clip_model_path():
     
     # Fallback to HuggingFace format
     hf_paths = [
-        "/data/vision/beery/scratch/rupa/image-restoration/Diff-Plugin3/clip-vit-large-patch14/models--openai--clip-vit-large-patch14/snapshots/32bd64288804d66eefd0ccbe215aa642df71cc41",
         "openai/clip-vit-large-patch14"  # Online fallback
     ]
     
