@@ -1,5 +1,10 @@
-# PRISM: A Compositional Approach to Image Restoration
+# PRISM: Controllable Diffusion for Compound Image Restoration with Scientific Fidelity
+Under review at ICLR '2026
 
+---
+Scientific and environmental imagery are often degraded by multiple compounding factors related to sensor noise and environmental effects. Existing restoration methods typically treat these compound effects by iteratively removing fixed categories, lacking the compositionality needed to handle real-world mixtures and often introducing cascading artifacts, overcorrection, or signal loss. We present PRISM (Precision Restoration with Interpretable Separation of Mixtures), a prompted conditional diffusion framework for expert-in-the-loop controllable restoration under compound degradations. PRISM combines (1) compound-aware supervision on mixtures of distortions and (2) a weighted contrastive disentanglement objective that aligns compound distortions with their constituent primitives to enable high-fidelity joint restoration. We outperform image restoration baselines on unseen complex real-world degradations, including underwater visibility, under-display camera effects, and fluid distortions. PRISM also enables selective restoration. Across microscopy, wildlife monitoring, and urban weather datasets, PRISM enhances downstream analysis by letting experts remove only degradations that hinder analysis, avoiding black-box “over-restoration.” Together, these results establish PRISM as a generalizable, controllable framework for high-fidelity restoration in domains where scientific utility is a priority.
+
+---
 <!-- [![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org)
 [![Project Page](https://img.shields.io/badge/Project-Page-blue)](https://example.com)
 [![Demo](https://img.shields.io/badge/Demo-Interactive-green)](./demo_interactive.ipynb) -->
@@ -301,7 +306,7 @@ PRISM consistently outperforms all baselines across four downstream scientific d
 
 *PSNR scores on downstream evaluation tasks. Higher is better.* -->
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
