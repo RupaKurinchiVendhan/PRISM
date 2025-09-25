@@ -8,62 +8,9 @@ import argparse
 import subprocess
 import sys
 import os
-from data_generation.prompts import PROMPT_TO_DISTORTION
+from data_generation.prompts import PROMPT_TO_DISTORTION, map_prompt_to_distortion
 
-def map_prompt_to_distortion(prompt):
-    """
-    Map natural language prompt to distortion type.
-    Uses simple keyword matching with priority for compound tasks.
-    """
-    prompt_lower = prompt.lower().strip()
-    words = prompt_lower.split()
-    
-    # Priority order for compound tasks (check these first)
-    if ("cloud" in words or "clouds" in words) and ("brighten" in words or "bright" in words or "dark" in words or "low light" in prompt_lower):
-        return "cloud_low"
-    
-    if "low contrast" in prompt_lower or "faded" in words:
-        return "low_contrast_color"
-        
-    if "underwater" in words and ("distortion" in words or "geometric" in words or "warp" in words):
-        return "unwarp_unrefract"
-        
-    if ("haze" in words or "dehaze" in words) and ("snow" in words or "desnow" in words):
-        return "dehaze_desnow"
-    
-    if ("blur" in words or "deblur" in words) and ("contrast" in words or "low" in words):
-        return "deblur_contrast_low"
-        
-    if ("noise" in words or "denoise" in words) and ("contrast" in words or "low" in words):
-        return "denoise_contrast_low"
-        
-    if ("superresolve" in words or "super resolution" in prompt_lower) and "noise" in words:
-        return "superresolve_denoise"
-    
-    # Try exact phrase matches
-    for keywords, distortion in PROMPT_TO_DISTORTION.items():
-        if keywords in prompt_lower:
-            return distortion
-    
-    # Individual task matching (fallback)
-    if "haze" in words or "fog" in words or "dehaze" in words:
-        return "dehaze_desnow"  # Use compound version if available
-    elif "blur" in words or "deblur" in words:
-        return "deblur_contrast_low"  # Use compound version
-    elif "noise" in words or "grain" in words or "denoise" in words:
-        return "denoise"
-    elif "cloud" in words or "clouds" in words:
-        return "decloud"
-    elif "underwater" in words or "unrefract" in words:
-        return "unrefract"
-    elif "unwarp" in words or "warp" in words:
-        return "unwarp"
-    elif "defocus" in words or "focus" in words:
-        return "defocus"
-    elif "decolor" in words or "color" in words:
-        return "decolor"
-    
-    return None
+
 
 def main():
     parser = argparse.ArgumentParser(description="Natural Language Image Restoration Demo")
