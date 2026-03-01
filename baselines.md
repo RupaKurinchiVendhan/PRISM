@@ -219,13 +219,13 @@ python train.py --model AutoDIR --routing_strategy adaptive \
 ### Fair Comparison Setup
 All baselines were retrained following these principles:
 
-1. **Same Primitive Distortions**: All models trained on identical blur, noise, haze, and rain primitives
+1. **Same Primitive Distortions**: All models trained on identical primitives
 2. **Single Distortion Training**: All baselines (except OneRestore) trained on individual distortions only
 3. **Identical Evaluation**: Same test sets and metrics across all methods
 4. **Controlled Setting**: Predefined primitive degradations applied consistently
 
 ### Training Data
-- **PRISM Primitives**: blur, noise, haze, rain
+- **PRISM Primitives**: blur, noise, haze, rain, etc.
 - **Single Distortion Models**: Separate training for each primitive
 - **Composite Model** (OneRestore only): Trained on mixed degradations
 - **Fair Evaluation**: All methods tested on identical compound distortions
@@ -235,30 +235,6 @@ All baselines were retrained following these principles:
 - **Single vs. Composite**: Most baselines trained on single distortions, PRISM on full combinatorial mixture
 - **Standard Supervision**: All baselines use their original loss functions without contrastive component
 
----
-
-## Evaluation Results
-
-As shown in our paper's Table (downstream evaluation), PRISM consistently outperforms all baselines across four downstream scientific datasets:
-- **Microscopy Images**
-- **Satellite Imagery** 
-- **Species Classification**
-- **Urban Scene Analysis**
-
-This demonstrates the added benefit of:
-- Compound-aware supervision
-- Contrastive disentanglement
-- Full combinatorial mixture training
-
----
-
-## Implementation Details
-
-### Hardware Requirements
-- **GPU**: NVIDIA RTX 3090 or better (24GB+ VRAM recommended)
-- **CPU**: Intel i7/i9 or AMD Ryzen 7/9
-- **RAM**: 32GB+ recommended
-- **Storage**: 500GB+ SSD for datasets and checkpoints
 
 ### Common Dependencies
 ```bash
@@ -274,46 +250,3 @@ pip install opencv-python scikit-image matplotlib numpy scipy
 pip install tensorboard wandb lpips timm
 pip install basicsr  # For some baselines
 ```
-
-### Datasets
-Ensure you have the PRISM primitive distortion datasets:
-- Blur corrupted images
-- Noise corrupted images  
-- Haze corrupted images
-- Rain corrupted images
-- Clean reference images
-
----
-
-## Reproducing Results
-
-1. **Download/Clone** all baseline repositories
-2. **Install** dependencies for each method
-3. **Prepare** PRISM primitive distortion datasets
-4. **Train** each baseline on single distortions (except OneRestore)
-5. **Evaluate** on compound distortions using our metrics
-6. **Compare** results with PRISM performance
-
-Detailed training configurations and hyperparameters are available in our codebase.
-
----
-
-## Citations
-
-When using these baselines, please cite both the original papers and our PRISM work:
-
-```bibtex
-% Original baseline papers - see individual repositories for citations
-
-% Our work
-@inproceedings{prism2024,
-  title={PRISM: A Compositional Approach to Image Restoration},
-  author={[Authors]},
-  booktitle={[Venue]},
-  year={2024}
-}
-```
-
----
-
-**Note**: Some GitHub links may be placeholders if repositories are not yet public. Please check the original papers for official implementation details.

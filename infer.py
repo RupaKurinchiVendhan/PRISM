@@ -10,12 +10,12 @@ from utils import concat_imgs
 from clip_loader import load_clip_model, get_clip_model_path
 
 
-def load_prism_model(unified_checkpoint_path, distortion_type, device, clip_path="auto"):
+def load_prism_model(prism_checkpoint_path, distortion_type, device, clip_path="auto"):
     """
     Load PRISM model from the checkpoint file.
     
     Args:
-        unified_checkpoint_path: Path to the unified checkpoint file
+        prism_checkpoint_path: Path to the PRISM weights file
         distortion_type: Type of distortion to load models for
         device: Device to load models on
         clip_path: Path to CLIP model
@@ -26,15 +26,15 @@ def load_prism_model(unified_checkpoint_path, distortion_type, device, clip_path
     import tempfile
     import json
     
-    if not os.path.exists(unified_checkpoint_path):
-        raise FileNotFoundError(f"Unified checkpoint not found: {unified_checkpoint_path}")
+    if not os.path.exists(prism_checkpoint_path):
+        raise FileNotFoundError(f"PRISM weights not found: {prism_checkpoint_path}")
     
-    print(f"Loading unified checkpoint from: {unified_checkpoint_path}")
-    unified_checkpoint = torch.load(unified_checkpoint_path, map_location='cpu')
+    print(f"Loading PRISM weights from: {prism_checkpoint_path}")
+    unified_checkpoint = torch.load(prism_checkpoint_path, map_location='cpu')
     
     if distortion_type not in unified_checkpoint['distortion_models']:
         available_types = list(unified_checkpoint['distortion_models'].keys())
-        raise ValueError(f"Distortion type '{distortion_type}' not found in unified checkpoint. "
+        raise ValueError(f"Distortion type '{distortion_type}' not found in PRISM weights. "
                         f"Available types: {available_types}")
     
     # Initialize PRISM model
@@ -68,13 +68,11 @@ def load_prism_model(unified_checkpoint_path, distortion_type, device, clip_path
     txt_state_dict = distortion_data['tpb']
     prism_model.text_conditioning_net.load_state_dict(txt_state_dict, strict=True)
     
-    print(f"✓ Successfully loaded {distortion_type} models from unified checkpoint")
-    
     return prism_model
 
 
 def parse_args(input_args=None):
-    parser = argparse.ArgumentParser(description="Diff-Plugin inference script with unified checkpoint support.")
+    parser = argparse.ArgumentParser(description="Diff-Plugin inference script with PRISM weights support.")
 
     parser.add_argument("--pretrained_model_name_or_path", default="CompVis/stable-diffusion-v1-4")
     parser.add_argument("--clip_path", default="auto", help="Path to CLIP model - use 'auto' for automatic selection")
@@ -83,13 +81,9 @@ def parse_args(input_args=None):
                        help="only set this to True for lowlight and highlight tasks")
 
     # Updated checkpoint arguments
-    parser.add_argument("--unified_checkpoint_path", type=str, default="pre-trained/unified_checkpoint.pt",
-                       help="Path to the unified checkpoint file")
+    parser.add_argument("--prism_checkpoint_path", type=str, default="pre-trained/prism_model.pt",
+                       help="Path to the PRISM weights file")
     parser.add_argument("--distortion_type", type=str, required=True,
-                       choices=['cloud_low', 'deblur', 'decloud', 'dehaze', 'demoire', 'derain', 'desnow',
-                                'face', 'highlight', 'lowlight', 'unrefract', 'deblur_contrast_low',
-                                'decloud_low', 'decolor', 'defocus', 'denoise', 'denoise_contrast_low',
-                                'low_contrast_color', 'superresolve_denoise', 'unwarp_unrefract'],
                        help="Type of distortion to process")
     
     # Backward compatibility - if ckpt_dir is provided, use the old method
@@ -103,6 +97,8 @@ def parse_args(input_args=None):
     parser.add_argument("--time_threshold", type=int, default=960, 
                        help='this is used when we set the initial noise as inp+noise')
     parser.add_argument("--save_root", default="temp_results/")
+    parser.add_argument("--save_comparison", action="store_true", default=False,
+                       help="Save side-by-side comparison (original | restored)")
     
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--img_path", type=str, required=True)
@@ -133,13 +129,12 @@ if __name__ == "__main__":
     # Determine CLIP path
     clip_path = get_clip_model_path() if args.clip_path == "auto" else args.clip_path
     
-    # Check if using legacy individual checkpoints or unified checkpoint
+    # Check if using legacy individual checkpoints or PRISM weights
     if args.ckpt_dir:
         # Legacy mode - load individual weights into PRISM
         print("Using legacy checkpoint loading...")
         SCBNet_path = os.path.join(args.ckpt_dir, "scb") 
         TPBNet_path = os.path.join(args.ckpt_dir, "tpb.pt")
-        print(f'Loading SCB from: {SCBNet_path}, TPB from: {TPBNet_path}')
         
         # Initialize PRISM model
         prism_model = PRISM(
@@ -158,10 +153,8 @@ if __name__ == "__main__":
         prism_model.text_conditioning_net.load_state_dict(txt_state_dict, strict=True)
         
     else:
-        # New unified checkpoint mode
-        print("Using unified checkpoint loading...")
         prism_model = load_prism_model(
-            args.unified_checkpoint_path, 
+            args.prism_checkpoint_path, 
             args.distortion_type, 
             device,
             clip_path=clip_path
@@ -212,10 +205,16 @@ if __name__ == "__main__":
         pred = prism_model.vae_image_processor.postprocess(pred_tensor, output_type='pil')[0]
     
     # Save result
-    save_ = concat_imgs([pil_image.resize(pred.size), pred], target_size=pred.size, target_dim=1)
     output_filename = f"{args.distortion_type}_{os.path.basename(args.img_path)}"
     output_path = os.path.join(args.save_root, output_filename)
-    save_.save(output_path)
+    
+    if args.save_comparison:
+        # Save side-by-side comparison
+        save_ = concat_imgs([pil_image.resize(pred.size), pred], target_size=pred.size, target_dim=1)
+        save_.save(output_path)
+    else:
+        # Save only the restored image
+        pred.save(output_path)
     
     print(f'Processing complete!')
     print(f'  - Distortion type: {args.distortion_type}')

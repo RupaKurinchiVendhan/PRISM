@@ -7,46 +7,107 @@ PROMPT_TO_DISTORTION = {
     "cloud removal brightness": "cloud_low",
     "clouds dark aerial": "cloud_low",
     
-    # Individual distortions
-    "remove haze": "dehaze",
-    "dehaze": "dehaze",
-    "remove fog": "dehaze",
-    "foggy": "dehaze",
+    # Geometric distortions
+    "remove blur": "blur",
+    "deblur": "blur", 
+    "blurry": "blur",
+    "motion blur": "blur",
+    "remove motion blur": "blur",
+    "fix blur": "blur",
     
-    "remove blur": "deblur",
-    "deblur": "deblur", 
-    "blurry": "deblur",
-    "motion blur": "deblur",
-    "out of focus": "deblur",
+    "out of focus": "defocus",
+    "defocus": "defocus",
+    "defocus blur": "defocus",
+    "unfocused": "defocus",
+    "fix focus": "defocus",
     
-    "remove rain": "derain",
-    "derain": "derain",
-    "rain streaks": "derain",
-    "rainy": "derain",
+    "warping": "warp",
+    "dewarp": "warp",
+    "remove warping": "warp",
+    "fix distortion": "warp",
+    "geometric distortion": "warp",
     
-    "remove snow": "desnow",
-    "desnow": "desnow",
-    "snowy": "desnow",
-    "winter": "desnow",
+    "refraction": "refract",
+    "derefract": "refract",
+    "remove refraction": "refract",
+    "water distortion": "refract",
+    "underwater": "refract",
+    "unrefract": "refract",
     
-    "brighten": "lowlight",
-    "low light": "lowlight", 
-    "dark": "lowlight",
-    "underexposed": "lowlight",
+    # Photometric degradations
+    "contrast": "contrast",
+    "fix contrast": "contrast",
+    "low contrast": "contrast",
+    "improve contrast": "contrast",
+    "enhance contrast": "contrast",
     
-    "remove clouds": "decloud",
-    "decloud": "decloud",
-    "cloudy sky": "decloud",
+    "color shifts": "color",
+    "color": "color",
+    "fix colors": "color",
+    "color correction": "color",
+    "white balance": "color",
+    "color cast": "color",
     
-    "remove noise": "denoise",
-    "denoise": "denoise",
-    "noisy": "denoise",
-    "grainy": "denoise",
+    "brightness": "brightness",
+    "fix brightness": "brightness",
+    "adjust brightness": "brightness",
+    "too bright": "brightness",
+    "too dark": "brightness",
     
-    "remove moire": "demoire",
-    "moire pattern": "demoire",
-    "demoire": "demoire",
+    "brighten": "low",
+    "low light": "low",
+    "lowlight": "low",
+    "dark": "low",
+    "underexposed": "low",
+    "enhance lighting": "low",
+    "improve lighting": "low",
     
+    # Occlusions
+    "remove haze": "haze",
+    "dehaze": "haze",
+    "remove fog": "haze",
+    "foggy": "haze",
+    "hazy": "haze",
+    "clear haze": "haze",
+    
+    "remove rain": "rain",
+    "derain": "rain",
+    "rain streaks": "rain",
+    "rainy": "rain",
+    "rain drops": "rain",
+    "rainfall": "rain",
+    
+    "remove snow": "snow",
+    "desnow": "snow",
+    "snowy": "snow",
+    "winter": "snow",
+    "snow removal": "snow",
+    
+    "remove clouds": "clouds",
+    "decloud": "clouds",
+    "cloudy sky": "clouds",
+    "cloud removal": "clouds",
+    "clouds": "clouds",
+    
+    # Noise and compression
+    "remove noise": "noise",
+    "denoise": "noise",
+    "noisy": "noise",
+    "grainy": "noise",
+    "additive noise": "noise",
+    "noise reduction": "noise",
+    
+    "compression": "compress",
+    "decompress": "compress",
+    "jpeg artifacts": "compress",
+    "compression artifacts": "compress",
+    "blocky": "compress",
+    "fix compression": "compress",
+    "resolution": "compress",
+    "superresolve": "compress",
+    "super-resolve": "compress",
+    
+    # Other
     "enhance face": "face",
     "face": "face",
     "portrait": "face",
@@ -55,15 +116,11 @@ PROMPT_TO_DISTORTION = {
     "overexposed": "highlight",
     "highlight": "highlight",
     
-    "underwater": "unrefract",
-    "unrefract": "unrefract",
-    "water distortion": "unrefract",
-    
     # Compound tasks available in unified checkpoint
-    "remove haze and snow": "dehaze_desnow",
-    "dehaze and desnow": "dehaze_desnow",
-    "haze and snow": "dehaze_desnow",
-    "fog and snow": "dehaze_desnow",
+    "remove haze and snow": "haze_snow",
+    "dehaze and desnow": "haze_snow",
+    "haze and snow": "haze_snow",
+    "fog and snow": "haze_snow",
 
     "low contrast color": "low_contrast_color",
     "faded image": "low_contrast_color",
@@ -76,7 +133,7 @@ PROMPT_TO_DISTORTION = {
 }
 
 
-def map_prompt_to_distortion(prompt):
+def embed(prompt):
     """
     Map natural language prompt to distortion type.
     Uses simple keyword matching with priority for compound tasks.
@@ -85,6 +142,14 @@ def map_prompt_to_distortion(prompt):
     words = prompt_lower.split()
     
     # Priority order for compound tasks (check these first)
+    # Check for brighten/lowlight + haze + snow combination
+    has_brighten = any(word in prompt_lower for word in ["brighten", "bright", "dark", "low light", "underexposed", "lowlight"])
+    has_haze = any(word in prompt_lower for word in ["haze", "dehaze", "fog", "foggy"])
+    has_snow = any(word in prompt_lower for word in ["snow", "desnow", "snowy"])
+    
+    if has_brighten and has_haze and has_snow:
+        return "low_haze_snow"
+    
     if ("cloud" in words or "clouds" in words) and ("brighten" in words or "bright" in words or "dark" in words or "low light" in prompt_lower):
         return "cloud_low"
     
@@ -95,7 +160,7 @@ def map_prompt_to_distortion(prompt):
         return "unwarp_unrefract"
         
     if ("haze" in words or "dehaze" in words) and ("snow" in words or "desnow" in words):
-        return "dehaze_desnow"
+        return "haze_snow"
     
     if ("blur" in words or "deblur" in words) and ("contrast" in words or "low" in words):
         return "deblur_contrast_low"
@@ -104,29 +169,54 @@ def map_prompt_to_distortion(prompt):
         return "denoise_contrast_low"
         
     if ("superresolve" in words or "super resolution" in prompt_lower) and "noise" in words:
-        return "superresolve_denoise"
+        return "compress_noise"
     
     # Try exact phrase matches
     for keywords, distortion in PROMPT_TO_DISTORTION.items():
         if keywords in prompt_lower:
             return distortion
     
-    # Individual task matching (fallback)
-    if "haze" in words or "fog" in words or "dehaze" in words:
-        return "dehaze_desnow"  # Use compound version if available
-    elif "blur" in words or "deblur" in words:
-        return "deblur_contrast_low"  # Use compound version
-    elif "noise" in words or "grain" in words or "denoise" in words:
+    # Individual task matching (fallback) - check for single distortion types
+    # Geometric distortions
+    if "motion blur" in prompt_lower or ("blur" in words and "motion" in words):
+        return "blur"
+    elif "defocus" in words or ("out" in words and "focus" in words):
+        return "focus"
+    elif "warp" in words or "warping" in words or "dewarp" in words:
+        return "warp"
+    elif "refract" in words or "derefract" in words:
+        return "refract"
+    elif "blur" in words or "deblur" in words or "blurry" in words:
+        return "blur"
+    
+    # Photometric degradations
+    elif "contrast" in words:
+        return "contrast"
+    elif "color" in words and any(w in words for w in ["shift", "cast", "correction", "fix"]):
+        return "color"
+    elif "brightness" in words:
+        return "brightness"
+    elif any(w in words for w in ["brighten", "lowlight", "underexposed"]) or "low light" in prompt_lower:
+        return "lowlight"
+    
+    # Occlusions
+    elif "haze" in words or "fog" in words or "dehaze" in words or "foggy" in words or "hazy" in words:
+        return "haze"
+    elif "rain" in words or "derain" in words or "rainy" in words:
+        return "rain"
+    elif "snow" in words or "desnow" in words or "snowy" in words:
+        return "snow"
+    elif "cloud" in words or "clouds" in words or "decloud" in words:
+        return "clouds"
+    
+    # Noise and compression
+    elif "noise" in words or "grain" in words or "denoise" in words or "noisy" in words or "grainy" in words:
         return "denoise"
-    elif "cloud" in words or "clouds" in words:
-        return "decloud"
-    elif "underwater" in words or "unrefract" in words:
-        return "unrefract"
-    elif "unwarp" in words or "warp" in words:
-        return "unwarp"
-    elif "defocus" in words or "focus" in words:
-        return "defocus"
-    elif "decolor" in words or "color" in words:
-        return "decolor"
+    elif "compress" in words or "decompress" in words or "jpeg" in words or "artifact" in words or "blocky" in words:
+        return "comppress"
+    
+    # Other
+    elif "underwater" in words:
+        return "refract"
     
     return None

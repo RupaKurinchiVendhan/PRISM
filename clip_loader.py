@@ -1,11 +1,13 @@
 """
 CLIP Model Loading Utilities
 Handles loading CLIP models from both HuggingFace format and .pt files
+Supports combined weight files (ca_clip + degradation_classifier)
 """
 
 import torch
 import os
 from transformers import CLIPVisionModel, CLIPVisionConfig, CLIPImageProcessor
+from weight_utils import load_ca_clip_weights, has_combined_format
 
 def load_clip_model(model_path, device='cpu'):
     """
@@ -25,7 +27,7 @@ def load_clip_model(model_path, device='cpu'):
 
 def load_clip_from_pt(pt_path, device='cpu'):
     """
-    Load CLIP model from .pt file
+    Load CLIP model from .pt file (supports both combined and separate formats)
     
     Args:
         pt_path: Path to the .pt file
@@ -37,8 +39,8 @@ def load_clip_from_pt(pt_path, device='cpu'):
     print(f"Loading CLIP model from .pt file: {pt_path}")
     
     try:
-        # Load checkpoint
-        checkpoint = torch.load(pt_path, map_location=device)
+        # Load checkpoint using weight_utils (handles combined format automatically)
+        checkpoint = load_ca_clip_weights(pt_path, device=device)
         
         # Create model from config
         config = CLIPVisionConfig.from_dict(checkpoint['config'])
@@ -98,13 +100,18 @@ def load_clip_from_hf(hf_path, device='cpu'):
 
 def get_clip_model_path():
     """
-    Get the default CLIP model path (prefer .pt file if available)
+    Get the default CLIP model path (prefer combined weights if available)
     
     Returns:
         str: Path to the CLIP model
     """
-    # Check for .pt file first (faster loading)
-    pt_path = "pre-trained/clip_vision_model.pt"
+    # Check for combined weights first (includes both CA-CLIP and classifier)
+    combined_path = "pre-trained/combined_weights.pt"
+    if os.path.exists(combined_path) and has_combined_format(combined_path):
+        return combined_path
+    
+    # Check for .pt file (faster loading)
+    pt_path = "pre-trained/ca_clip.pt"
     if os.path.exists(pt_path):
         return pt_path
     
@@ -118,4 +125,5 @@ def get_clip_model_path():
             return path
     
     # Final fallback to online model
+    return "openai/clip-vit-large-patch14"
     return "openai/clip-vit-large-patch14"

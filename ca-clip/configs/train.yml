@@ -1,0 +1,106 @@
+#### general settings
+name: ca_clip
+use_wandb: true
+wandb_project: ca-clip
+model: denoising  # Model type for IR-SDE
+gpu_ids: [0,1,2,3]
+dist: true
+find_unused_parameters: true
+
+# Distortion types in your dataset (based on folder names)
+# Can be a list for multi-degradation or 'sr' for super-resolution
+distortion: restoration  # General restoration task
+
+sde:
+  max_sigma: 50
+  T: 100
+  schedule: cosine
+  eps: 0.005
+
+# CA-CLIP specific settings
+ca_clip:
+  enabled: true
+  num_variants: 256  # Number of degraded variants to sample per clean image (reduce to 64 if needed)
+  temperature: 0.1   # Temperature for contrastive loss
+  
+# CLIP model settings
+clip:
+  model_name: 'ViT-B-32'
+  pretrained: 'laion2b_s34b_b79k'
+  freeze: true  # Keep CLIP frozen
+
+#### datasets
+datasets:
+  train:
+    name: Training_Data
+    mode: PreDegradedMultiVariant  # Use pre-degraded dataset
+    dataroot: /path/to/data
+    clean_folder: clear
+    num_variants: 256  # Must match ca_clip.num_variants
+    
+    data_type: img
+    use_shuffle: true
+    n_workers: 0  # Use main process to avoid worker being killed
+    batch_size: 2  # Reduced for memory
+    patch_size: 128
+    use_flip: true
+    use_rot: true
+    color: RGB
+    phase: training
+
+#### network structures
+network_G:
+  which_model_G: ConditionalUNet
+  setting:
+    in_nc: 3
+    out_nc: 3
+    nf: 64
+    ch_mult: [1, 2, 4, 8]
+    context_dim: 512
+    use_degra_context: true
+    use_image_context: true
+
+#### path
+path:
+  root: ~
+  pretrain_model_G: ~
+  strict_load: true
+  resume_state: ~
+  experiments_root: ./experiments
+  tb_logger_root: ./tb_logger
+
+#### training settings
+train:
+  manual_seed: 0
+  
+  # Optimization
+  optimizer: AdamW
+  lr_G: !!float 2e-4
+  beta1: 0.9
+  beta2: 0.99
+  
+  # Scheduling
+  niter: 500000
+  warmup_iter: -1
+  lr_scheme: TrueCosineAnnealingLR
+  lr_steps: [100000, 200000, 300000, 400000]
+  lr_gamma: 0.5
+  eta_min: !!float 1e-6
+  
+  # Loss configuration
+  is_weighted: false
+  loss_type: l1
+  weight: 1.0
+  
+  # CA-CLIP loss weight
+  ca_clip_weight: 0.1
+  
+  # Training settings
+  val_freq: !!float 5000
+  print_freq: 100
+  save_checkpoint_freq: !!float 5000
+
+#### logger
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 5000
