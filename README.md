@@ -1,6 +1,8 @@
 # PRISM: Controllable Diffusion for Compound Image Restoration with Scientific Fidelity
 ### ICLR 2026
 
+![Hero Image](./hero.jpg)
+
 ---
 Scientific and environmental imagery are often degraded by multiple compounding factors related to sensor noise and the environment. Existing restoration methods typically treat these mixed effects by iteratively removing fixed categories, but they assume degradations occur in isolation and therefore cannot flexibly model real-world mixtures, often introducing cascading artifacts, overcorrection, or signal loss. Moreover, current supervised approaches rely on paired ground-truth data, which may be unavailable or impossible to simulate in many domains. We present \textbf{PRISM} (\textbf{P}recision \textbf{R}estoration with \textbf{I}nterpretable \textbf{S}eparation of \textbf{M}ixtures), a prompted conditional diffusion framework for {\emph{expert-guided restoration}} under compound degradations. PRISM combines (1) compound-aware supervision on mixtures of distortions and (2) a weighted contrastive disentanglement objective that aligns compound distortions with their constituent primitives to enable high-fidelity joint restoration. Our compound-aware latent space enables both automated restoration and generalization to unseen combinations of degradations. We outperform image restoration baselines on unseen complex real-world degradations, including underwater visibility, under-display camera effects, and fluid distortions. PRISM also enables selective restoration. Across microscopy, wildlife monitoring, and urban weather datasets, our method allows experts to remove only degradations that hinder analysis, avoiding black-box ``over-restoration.'' These results establish PRISM as a generalizable and controllable framework for high-fidelity restoration in domains where scientific utility is a priority.
 
@@ -76,14 +78,6 @@ python infer.py --input path/to/degraded/image.jpg --output path/to/restored/ima
 # Batch inference
 python infer.py --input_dir path/to/degraded/images/ --output_dir path/to/restored/images/ --model weights/prism_model.pth
 ```
-You can also use the bash script.
-```bash
-# Make the inference script executable
-chmod +x infer.sh
-
-# Run inference with the shell script
-./infer.sh path/to/input/image.jpg path/to/output/image.jpg
-```
 
 ## Training
 
@@ -126,8 +120,6 @@ python infer.py
     --seed 42
 ```
 
-For more examples, see `infer.sh` which provides a convenient wrapper script for common inference tasks.
-
 ### Batch Evaluation with Metrics
 
 The `run_eval.py` script runs inference over entire test datasets and computes quantitative metrics (PSNR, SSIM, LPIPS, FID):
@@ -158,7 +150,7 @@ We provide Jupyter notebooks for evaluating PRISM on domain-specific downstream 
 
 Each notebook demonstrates how restoration quality impacts task performance compared to using degraded images directly.
 
-<!-- ## Interactive Demos
+## Interactive Demos
 
 The `demo.ipynb` notebook provides a comprehensive, step-by-step exploration of PRISM.
 
@@ -166,7 +158,7 @@ The `demo.ipynb` notebook provides a comprehensive, step-by-step exploration of 
 ```bash
 # Start Jupyter notebook
 jupyter notebook demo.ipynb
-``` -->
+```
 
 ## Test it out yourself!
 
@@ -185,16 +177,3 @@ We compare PRISM against state-of-the-art methods across three categories:
 - **Modular/Token-Based Methods**: DiffPlugin, MPerceiver, AutoDIR
 
 See [baselines.md](baselines.md) for detailed information on downloading, installing, and retraining baseline methods.
-
-<!-- ## Citation
-
-If you find PRISM useful in your research, please cite our paper!
-
-```bibtex
-@inproceedings{prism2024,
-  title={PRISM: A Compositional Approach to Image Restoration},
-  author={[Author Names]},
-  booktitle={[Conference/Journal Name]},
-  year={2024}
-}
-``` -->

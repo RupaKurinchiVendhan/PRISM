@@ -10,7 +10,7 @@ from diffusers.utils import logging
 
 from .ImageConditioning import ImageConditioningNet
 from .TextConditioning import TextConditioningNet
-from utils import import_model_class_from_model_name_or_path
+from .utils import import_model_class_from_model_name_or_path
 
 # Import clip_loader from parent directory
 import sys

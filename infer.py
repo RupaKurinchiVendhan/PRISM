@@ -6,8 +6,122 @@ from transformers import CLIPVisionModel, AutoTokenizer, CLIPImageProcessor
 from diffusers.utils import load_image
 
 from modules import PRISM
-from utils import concat_imgs
+from modules.utils import concat_imgs
 from clip_loader import load_clip_model, get_clip_model_path
+from data_generation.prompts import embed
+
+
+def predict_distortion_from_image(image_path, checkpoint_path, class_names_file):
+    """
+    Use degradation encoder to predict distortion type from image.
+    
+    Args:
+        image_path: Path to the image
+        checkpoint_path: Path to degradation encoder checkpoint
+        class_names_file: Path to class names JSON
+        
+    Returns:
+        str: Predicted distortion type or None
+    """
+    import json
+    import torch.nn.functional as F
+    from PIL import Image
+    from torchvision import transforms
+    from weight_utils import load_classifier_weights
+    
+    print("Auto-detecting distortion type from image...")
+    
+    try:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Load the checkpoint
+        checkpoint = load_classifier_weights(checkpoint_path, device=device)
+        
+        # Extract model info
+        num_classes = None
+        model_type = 'resnet50'
+        
+        if 'args' in checkpoint:
+            args = checkpoint['args']
+            model_type = args.get('model_type', 'resnet50')
+            num_classes = args.get('num_classes', None)
+        elif 'config' in checkpoint:
+            config = checkpoint['config']
+            model_type = config.get('model_type', 'resnet50')
+            num_classes = config.get('num_classes', None)
+        
+        if num_classes is None:
+            state_dict = checkpoint.get('model_state_dict', checkpoint.get('state_dict', checkpoint))
+            for key in state_dict.keys():
+                if 'fc.weight' in key or 'classifier.weight' in key:
+                    num_classes = state_dict[key].shape[0]
+                    break
+        
+        # Create model
+        from torchvision.models import resnet50, resnet101, resnet18
+        if model_type == 'resnet50':
+            model = resnet50(weights=None)
+        elif model_type == 'resnet101':
+            model = resnet101(weights=None)
+        elif model_type == 'resnet18':
+            model = resnet18(weights=None)
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
+        
+        if num_classes is not None:
+            in_features = model.fc.in_features
+            model.fc = torch.nn.Linear(in_features, num_classes)
+        
+        # Load weights
+        state_dict = checkpoint.get('model_state_dict', checkpoint.get('state_dict', checkpoint))
+        model.load_state_dict(state_dict, strict=True)
+        model = model.to(device)
+        model.eval()
+        
+        # Load class names
+        class_names = None
+        if class_names_file and os.path.exists(class_names_file):
+            with open(class_names_file, 'r') as f:
+                class_names = json.load(f)
+                if isinstance(class_names, dict):
+                    class_names = [class_names[str(i)] for i in sorted([int(k) for k in class_names.keys()])]
+        elif 'class_names' in checkpoint:
+            class_names = checkpoint['class_names']
+        
+        if not class_names:
+            # print("Warning: No class names found")
+            return None
+        
+        # Preprocess image
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                               std=[0.229, 0.224, 0.225])
+        ])
+        
+        img = Image.open(image_path).convert('RGB')
+        img_tensor = transform(img).unsqueeze(0).to(device)
+        
+        # Get prediction
+        with torch.no_grad():
+            logits = model(img_tensor)
+            probs = F.softmax(logits, dim=1)
+            pred_class = torch.argmax(probs, dim=1).item()
+            confidence = probs[0, pred_class].item()
+        
+        predicted_distortion = class_names[pred_class] if pred_class < len(class_names) else None
+        
+        if predicted_distortion:
+            print(f"Detected distortion: {predicted_distortion}")
+        
+        return predicted_distortion
+        
+    except Exception as e:
+        print(f"Error in auto-detection: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def load_prism_model(prism_checkpoint_path, distortion_type, device, clip_path="auto"):
@@ -83,8 +197,14 @@ def parse_args(input_args=None):
     # Updated checkpoint arguments
     parser.add_argument("--prism_checkpoint_path", type=str, default="pre-trained/prism_model.pt",
                        help="Path to the PRISM weights file")
-    parser.add_argument("--distortion_type", type=str, required=True,
-                       help="Type of distortion to process")
+    parser.add_argument("--distortion_type", type=str, default=None,
+                       help="Type of distortion to process (if not provided, will use prompt or auto-detect)")
+    parser.add_argument("--prompt", type=str, default=None,
+                       help="Natural language prompt describing the distortion (alternative to --distortion_type)")
+    parser.add_argument("--degradation_encoder_checkpoint", type=str, default=None,
+                       help="Path to degradation encoder for auto-detection (used when prompt mapping fails)")
+    parser.add_argument("--class_names_file", type=str, default="data_generation/class_names.json",
+                       help="Path to class names JSON file for auto-detection")
     
     # Backward compatibility - if ckpt_dir is provided, use the old method
     parser.add_argument("--ckpt_dir", type=str, default="", required=False,
@@ -108,10 +228,6 @@ def parse_args(input_args=None):
     else:
         args = parser.parse_args()
     
-    # Auto-set inp_of_unet_is_random_noise for specific distortion types
-    if args.distortion_type in ['lowlight', 'highlight']:
-        args.inp_of_unet_is_random_noise = True
-    
     return args
 
 
@@ -122,9 +238,61 @@ if __name__ == "__main__":
     # step-1: settings
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     os.makedirs(args.save_root, exist_ok=True)
+    
+    # Determine distortion type from prompt, explicit type, or auto-detection
+    distortion_type = args.distortion_type
+    
+    if distortion_type is None:
+        if args.prompt:
+            # Try to map prompt to distortion type
+            print(f"Input prompt: '{args.prompt}'")
+            distortion_type = embed(args.prompt)
+            
+            if distortion_type is None:
+                
+                # Fall back to auto-detection
+                if args.degradation_encoder_checkpoint is None:
+                    args.degradation_encoder_checkpoint = "pre-trained/best_model.pt"
+                
+                if os.path.exists(args.degradation_encoder_checkpoint):
+                    distortion_type = predict_distortion_from_image(
+                        args.img_path,
+                        args.degradation_encoder_checkpoint,
+                        args.class_names_file
+                    )
+                
+                if distortion_type is None:
+                    print("\nError: Could not determine distortion type.")
+                    print("Please either:")
+                    print("  1. Provide --distortion_type explicitly")
+                    print("  2. Use a supported prompt phrase")
+                    exit(1)
+            # else:
+                # print(f"Mapped prompt to distortion type: {distortion_type}")
+        else:
+            # No prompt and no explicit type - try auto-detection
+            if args.degradation_encoder_checkpoint is None:
+                args.degradation_encoder_checkpoint = "pre-trained/best_model.pt"
+            
+            if os.path.exists(args.degradation_encoder_checkpoint):
+                distortion_type = predict_distortion_from_image(
+                    args.img_path,
+                    args.degradation_encoder_checkpoint,
+                    args.class_names_file
+                )
+            
+            if distortion_type is None:
+                print("\nError: No distortion type provided and auto-detection failed.")
+                print("Please provide either --distortion_type or --prompt")
+                exit(1)
+    
+    print(f"\nProcessing {distortion_type} distortion...")
+    
+    # Auto-set inp_of_unet_is_random_noise for specific distortion types
+    if distortion_type in ['lowlight', 'highlight']:
+        args.inp_of_unet_is_random_noise = True
 
     # step-2: Load PRISM model
-    print(f"Processing {args.distortion_type} distortion...")
     
     # Determine CLIP path
     clip_path = get_clip_model_path() if args.clip_path == "auto" else args.clip_path
@@ -132,7 +300,7 @@ if __name__ == "__main__":
     # Check if using legacy individual checkpoints or PRISM weights
     if args.ckpt_dir:
         # Legacy mode - load individual weights into PRISM
-        print("Using legacy checkpoint loading...")
+        print("Loading...")
         SCBNet_path = os.path.join(args.ckpt_dir, "scb") 
         TPBNet_path = os.path.join(args.ckpt_dir, "tpb.pt")
         
@@ -155,7 +323,7 @@ if __name__ == "__main__":
     else:
         prism_model = load_prism_model(
             args.prism_checkpoint_path, 
-            args.distortion_type, 
+            distortion_type, 
             device,
             clip_path=clip_path
         )
@@ -205,7 +373,7 @@ if __name__ == "__main__":
         pred = prism_model.vae_image_processor.postprocess(pred_tensor, output_type='pil')[0]
     
     # Save result
-    output_filename = f"{args.distortion_type}_{os.path.basename(args.img_path)}"
+    output_filename = f"{distortion_type}_{os.path.basename(args.img_path)}"
     output_path = os.path.join(args.save_root, output_filename)
     
     if args.save_comparison:
@@ -217,6 +385,3 @@ if __name__ == "__main__":
         pred.save(output_path)
     
     print(f'Processing complete!')
-    print(f'  - Distortion type: {args.distortion_type}')
-    print(f'  - Input: {args.img_path}')
-    print(f'  - Output: {output_path}')

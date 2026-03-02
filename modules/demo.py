@@ -94,10 +94,6 @@ def predict_distortions_from_image(image_path, checkpoint_path, class_names_file
         elif os.path.exists('data_generation/class_names.json'):
             class_names = load_class_names('data_generation/class_names.json')
         
-        if not class_names:
-            print("Warning: No class names found")
-            return None
-        
         # Preprocess image
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
@@ -119,14 +115,8 @@ def predict_distortions_from_image(image_path, checkpoint_path, class_names_file
         predicted_distortion = class_names[pred_class] if pred_class < len(class_names) else None
         
         if predicted_distortion:
-            print(f"Detected distortion: {predicted_distortion} (confidence: {confidence:.3f})")
-            
-            # Show top-3 predictions
-            top_probs, top_indices = torch.topk(probs[0], min(3, len(class_names)))
-            print("\nTop 3 predictions:")
-            for prob, idx in zip(top_probs, top_indices):
-                print(f"  {class_names[idx]}: {prob:.3f}")
-        
+            print(f"Detected distortion: {predicted_distortion}")
+
         return predicted_distortion
         
     except Exception as e:
@@ -138,7 +128,7 @@ def predict_distortions_from_image(image_path, checkpoint_path, class_names_file
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Natural Language Image Restoration Demo")
+    parser = argparse.ArgumentParser()
     
     # Required arguments
     parser.add_argument("--img_path", type=str, required=True, help="Path to input image")
@@ -158,25 +148,20 @@ def main():
     
     # Handle combined weights path
     if args.combined_weights_path is not None:
-        print(f"Using combined weights from: {args.combined_weights_path}")
+        print(f"Using weights from: {args.combined_weights_path}")
         if os.path.exists(args.combined_weights_path):
             # Override both paths to use combined checkpoint
             args.clip_path = args.combined_weights_path
             if args.degradation_encoder_checkpoint is None:
                 args.degradation_encoder_checkpoint = args.combined_weights_path
         else:
-            print(f"Warning: Combined weights file not found at {args.combined_weights_path}")
+            print(f"Warning: Weights file not found at {args.combined_weights_path}")
     
-    # Check for default combined weights if no explicit paths given
-    default_combined = "pre-trained/combined_weights.pt"
-    if (args.clip_path == "pre-trained/ca_clip.pt" and 
-        args.degradation_encoder_checkpoint is None and
-        os.path.exists(default_combined)):
-        print(f"Found combined weights at {default_combined}, using it for both CA-CLIP and classifier")
-        args.clip_path = default_combined
-        args.degradation_encoder_checkpoint = default_combined
-    
-    print("Natural Language Image Restoration Demo")
+    # Check for default weights if no explicit paths given
+    default_combined = "pre-trained/ca_clip.pt"
+    args.clip_path = default_combined
+    args.degradation_encoder_checkpoint = default_combined
+
     print("=" * 50)
     
     # Check if image exists
@@ -193,12 +178,30 @@ def main():
         
         if distortion_type is None:
             print("Could not map prompt to a known distortion type.")
-            print("Try prompts like:")
-            print("  - 'remove clouds and brighten this aerial photo'")
-            print("  - 'remove the haze from this image'") 
-            print("  - 'remove blur from this photo'")
-            print("  - 'brighten this dark image'")
-            return 1
+            print("Falling back to auto-detection...")
+            print()
+            
+            # Fall back to auto-detection
+            if args.degradation_encoder_checkpoint is None:
+                args.degradation_encoder_checkpoint = "pre-trained/best_model.pt"
+                print(f"Using default degradation encoder: {args.degradation_encoder_checkpoint}")
+            
+            distortion_type = predict_distortions_from_image(
+                args.img_path,
+                args.degradation_encoder_checkpoint,
+                args.class_names_file
+            )
+            
+            if distortion_type is None:
+                print("\nFailed to auto-detect distortions.")
+                print("Suggestions:")
+                print("  - Try a different prompt like:")
+                print("    • 'remove clouds and brighten this aerial photo'")
+                print("    • 'remove the haze from this image'") 
+                print("    • 'remove blur from this photo'")
+                print("    • 'brighten this dark image'")
+                print("  - Or ensure the degradation encoder checkpoint is available")
+                return 1
     else:
         # Auto-detect distortions using degradation encoder
         # Use default checkpoint if none specified
@@ -233,9 +236,7 @@ def main():
         "--clip_path", args.clip_path
     ]
     
-    print("Running inference with command:")
-    print(" ".join(cmd))
-    print()
+    print("Running inference")
     
     # Run the command
     try:

@@ -126,4 +126,3 @@ def get_clip_model_path():
     
     # Final fallback to online model
     return "openai/clip-vit-large-patch14"
-    return "openai/clip-vit-large-patch14"

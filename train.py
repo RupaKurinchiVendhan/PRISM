@@ -22,11 +22,11 @@ from transformers import CLIPVisionModel
 from transformers.image_utils import OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
 
 from val import log_validation_prism
-from utils import save_random_states
+from modules.utils import save_random_states
 from clip_loader import load_clip_model, get_clip_model_path
 from dataset.dataset import make_train_dataset, collate_fn
 from modules import PRISM
-from utils import  get_latest_checkpoint, save_args, code_backup
+from modules.utils import get_latest_checkpoint, save_args, code_backup
 
 
 
